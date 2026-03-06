@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+# Cold Storage Tracker
 WORKDIR /app
 
 # Install dependencies first (layer cache)
