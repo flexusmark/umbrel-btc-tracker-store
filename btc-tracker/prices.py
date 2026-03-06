@@ -4,10 +4,12 @@ prices.py — Fetch BTC daily price history from CoinGecko and store in DB.
 Fetches both USD and CAD prices so the user can switch display currency.
 On first run (or when the table is nearly empty) we fetch the full history.
 Subsequent daily calls only fetch the most recent few days.
-CoinGecko free tier: no API key needed, ~30 req/min rate limit.
+CoinGecko free tier requires a demo API key (free, no credit card).
+Set the COINGECKO_API_KEY environment variable with your key.
 """
 
 import logging
+import os
 import time
 from datetime import date
 
@@ -18,6 +20,7 @@ import db
 log = logging.getLogger(__name__)
 
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
+COINGECKO_API_KEY = os.environ.get("COINGECKO_API_KEY", "")
 REQUEST_TIMEOUT = 30
 
 
@@ -30,6 +33,8 @@ def _fetch_history(vs_currency, days="max"):
         f"{COINGECKO_BASE}/coins/bitcoin/market_chart"
         f"?vs_currency={vs_currency}&days={days}&interval=daily"
     )
+    if COINGECKO_API_KEY:
+        url += f"&x_cg_demo_api_key={COINGECKO_API_KEY}"
     resp = requests.get(url, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()

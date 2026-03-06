@@ -22,7 +22,6 @@ import socket
 import struct
 import hashlib
 import logging
-from io import BytesIO
 
 from embit import bip32, script
 from embit.networks import NETWORKS
@@ -153,7 +152,7 @@ def _net_value_for_address(client, raw_hex, addr_script_bytes):
     Parses the raw transaction with embit and compares output/input
     scriptPubKeys against the target address's scriptPubKey bytes.
     """
-    tx = Transaction.parse(BytesIO(bytes.fromhex(raw_hex)))
+    tx = Transaction.parse(bytes.fromhex(raw_hex))
 
     # Sum outputs paying to our address
     received = 0
@@ -167,11 +166,10 @@ def _net_value_for_address(client, raw_hex, addr_script_bytes):
         # Coinbase inputs have txid = 32 zero bytes
         if vin.txid == b'\x00' * 32:
             continue
-        # embit stores txid in wire format (internal byte order);
-        # Electrum protocol uses display order (reversed).
-        prev_txid = vin.txid[::-1].hex()
+        # embit stores txid in display order (already reversed)
+        prev_txid = vin.txid.hex()
         prev_raw = client.get_raw_tx(prev_txid)
-        prev_tx = Transaction.parse(BytesIO(bytes.fromhex(prev_raw)))
+        prev_tx = Transaction.parse(bytes.fromhex(prev_raw))
         prev_output = prev_tx.vout[vin.vout]
         if prev_output.script_pubkey.data == addr_script_bytes:
             spent += prev_output.value
