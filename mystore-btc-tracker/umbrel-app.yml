@@ -16,11 +16,11 @@ description: >
   or balances.
 
 developer: Self-hosted
-website: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store
-repo: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store
-support: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store/issues
-submitter: YOURUSERNAME
-submission: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store
+website: https://github.com/flexusmark/umbrel-btc-tracker-store
+repo: https://github.com/flexusmark/umbrel-btc-tracker-store
+support: https://github.com/flexusmark/umbrel-btc-tracker-store/issues
+submitter: flexusmark
+submission: https://github.com/flexuamark/umbrel-btc-tracker-store
 
 dependencies:
   - electrs
