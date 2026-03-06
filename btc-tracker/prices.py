@@ -63,7 +63,9 @@ def backfill_prices():
         prices = db.get_prices(conn)
 
     is_full = len(prices) < 30
-    days = "max" if is_full else "3"
+    # CoinGecko free/demo tier does not support days=max.
+    # 365 days covers over a year of history, which is enough for most wallets.
+    days = 365 if is_full else 3
     label = "full" if is_full else "recent"
 
     # Fetch USD prices
