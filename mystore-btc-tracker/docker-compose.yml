@@ -13,6 +13,8 @@ services:
       # Electrs Electrum TCP protocol connection (hardcoded Umbrel IP)
       ELECTRS_HOST: "10.21.21.10"
       ELECTRS_PORT: "50001"
+      # CoinGecko demo API key (free — get yours at coingecko.com/en/api/pricing)
+      COINGECKO_API_KEY: "PASTE_YOUR_FREE_KEY_HERE"
       # Flask secret key — Umbrel provides a unique seed per app
       SECRET_KEY: "${APP_SEED}"
       # SQLite database path (inside the /data volume)
