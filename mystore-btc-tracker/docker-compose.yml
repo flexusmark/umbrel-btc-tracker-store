@@ -14,7 +14,7 @@ services:
       ELECTRS_HOST: "10.21.21.10"
       ELECTRS_PORT: "50001"
       # CoinGecko demo API key (free — get yours at coingecko.com/en/api/pricing)
-      COINGECKO_API_KEY: "PASTE_YOUR_FREE_KEY_HERE"
+      COINGECKO_API_KEY: "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=bitcoin&x_cg_demo_api_key=CG-tTgBxPNn1jpCQFDUdMAvX1bZ"
       # Flask secret key — Umbrel provides a unique seed per app
       SECRET_KEY: "${APP_SEED}"
       # SQLite database path (inside the /data volume)
