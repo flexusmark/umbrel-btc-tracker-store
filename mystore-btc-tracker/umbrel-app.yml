@@ -20,7 +20,7 @@ website: https://github.com/flexusmark/umbrel-btc-tracker-store
 repo: https://github.com/flexusmark/umbrel-btc-tracker-store
 support: https://github.com/flexusmark/umbrel-btc-tracker-store/issues
 submitter: flexusmark
-submission: https://github.com/flexuamark/umbrel-btc-tracker-store
+submission: https://github.com/flexusmark/umbrel-btc-tracker-store
 
 dependencies:
   - electrs
