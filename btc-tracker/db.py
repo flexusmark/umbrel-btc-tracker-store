@@ -58,12 +58,41 @@ def init_db():
             CREATE TABLE IF NOT EXISTS btc_prices (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 date        TEXT NOT NULL UNIQUE,  -- 'YYYY-MM-DD' UTC
-                usd_price   REAL NOT NULL
+                usd_price   REAL NOT NULL,
+                cad_price   REAL
+            );
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             );
 
             CREATE INDEX IF NOT EXISTS idx_tx_address ON transactions(address_id);
             CREATE INDEX IF NOT EXISTS idx_daily_wallet_date ON daily_balances(wallet_id, date);
         """)
+
+        # Migration: add cad_price column if DB was created before this update
+        try:
+            conn.execute("SELECT cad_price FROM btc_prices LIMIT 1")
+        except sqlite3.OperationalError:
+            conn.execute("ALTER TABLE btc_prices ADD COLUMN cad_price REAL")
+
+
+# --- Settings helpers ---
+
+def get_setting(conn, key, default=None):
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key=?", (key,)
+    ).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(conn, key, value):
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, str(value))
+    )
 
 
 # --- Wallet helpers ---
@@ -180,51 +209,56 @@ def get_current_balance_sats(conn, wallet_id):
 
 # --- Price helpers ---
 
-def upsert_price(conn, date_str, usd_price):
+def upsert_price(conn, date_str, usd_price, cad_price=None):
     conn.execute(
-        "INSERT INTO btc_prices (date, usd_price) VALUES (?,?) "
-        "ON CONFLICT(date) DO UPDATE SET usd_price=excluded.usd_price",
-        (date_str, usd_price)
+        "INSERT INTO btc_prices (date, usd_price, cad_price) VALUES (?,?,?) "
+        "ON CONFLICT(date) DO UPDATE SET usd_price=excluded.usd_price, "
+        "cad_price=COALESCE(excluded.cad_price, btc_prices.cad_price)",
+        (date_str, usd_price, cad_price)
     )
 
 
 def get_prices(conn):
     return conn.execute(
-        "SELECT date, usd_price FROM btc_prices ORDER BY date"
+        "SELECT date, usd_price, cad_price FROM btc_prices ORDER BY date"
     ).fetchall()
 
 
-def get_latest_price(conn):
+def get_latest_price(conn, currency="usd"):
+    col = "cad_price" if currency == "cad" else "usd_price"
     row = conn.execute(
-        "SELECT usd_price FROM btc_prices ORDER BY date DESC LIMIT 1"
+        f"SELECT {col} AS price FROM btc_prices WHERE {col} IS NOT NULL "
+        f"ORDER BY date DESC LIMIT 1"
     ).fetchone()
-    return row["usd_price"] if row else None
+    return row["price"] if row else None
 
 
 # --- Portfolio chart data ---
 
-def get_portfolio_chart_data(conn):
+def get_portfolio_chart_data(conn, currency="usd"):
     """
-    Return a list of {date, total_sats, usd_price, total_usd} dicts,
+    Return a list of {date, total_sats, price, total_fiat} dicts,
     one per day where we have both balance and price data.
     """
-    rows = conn.execute("""
+    price_col = "cad_price" if currency == "cad" else "usd_price"
+    rows = conn.execute(f"""
         SELECT db.date,
                SUM(db.balance_sats) AS total_sats,
-               p.usd_price
+               p.{price_col} AS price
         FROM daily_balances db
         JOIN btc_prices p ON p.date = db.date
+        WHERE p.{price_col} IS NOT NULL
         GROUP BY db.date
         ORDER BY db.date
     """).fetchall()
     result = []
     for r in rows:
-        total_usd = round((r["total_sats"] / 1e8) * r["usd_price"], 2)
+        total_fiat = round((r["total_sats"] / 1e8) * r["price"], 2)
         result.append({
             "date": r["date"],
             "total_sats": r["total_sats"],
-            "usd_price": r["usd_price"],
-            "total_usd": total_usd,
+            "price": r["price"],
+            "total_fiat": total_fiat,
         })
     return result
 
@@ -241,3 +275,56 @@ def get_per_wallet_chart_data(conn):
             "balance_sats": r["balance_sats"],
         })
     return data
+
+
+# --- Max portfolio value ---
+
+def get_max_portfolio_value(conn, currency="usd"):
+    """
+    Find the date and value of the all-time-high total portfolio value.
+    Returns dict {date, value} or None if no data.
+    """
+    price_col = "cad_price" if currency == "cad" else "usd_price"
+    row = conn.execute(f"""
+        SELECT db.date,
+               SUM(db.balance_sats) * p.{price_col} / 1e8 AS total_fiat
+        FROM daily_balances db
+        JOIN btc_prices p ON p.date = db.date
+        WHERE p.{price_col} IS NOT NULL
+        GROUP BY db.date
+        ORDER BY total_fiat DESC
+        LIMIT 1
+    """).fetchone()
+    if row and row["total_fiat"]:
+        return {"date": row["date"], "value": round(row["total_fiat"], 2)}
+    return None
+
+
+# --- Average purchase price per wallet ---
+
+def get_avg_purchase_price(conn, wallet_id, currency="usd"):
+    """
+    Compute the weighted-average BTC price at the time of each deposit
+    (cost basis) for a wallet.
+
+    Only considers receive transactions (value_sats > 0) with a confirmed
+    block_time. Joins with btc_prices on the transaction date.
+
+    Returns the average price as a float, or None if no qualifying data.
+    """
+    price_col = "cad_price" if currency == "cad" else "usd_price"
+    row = conn.execute(f"""
+        SELECT SUM(t.value_sats * p.{price_col} / 1e8) AS total_cost,
+               SUM(t.value_sats) AS total_sats
+        FROM transactions t
+        JOIN addresses a ON a.id = t.address_id
+        JOIN btc_prices p ON p.date = date(t.block_time, 'unixepoch')
+        WHERE a.wallet_id = ?
+          AND t.value_sats > 0
+          AND t.block_time IS NOT NULL
+          AND p.{price_col} IS NOT NULL
+    """, (wallet_id,)).fetchone()
+
+    if row and row["total_sats"] and row["total_sats"] > 0:
+        return round(row["total_cost"] / (row["total_sats"] / 1e8), 2)
+    return None

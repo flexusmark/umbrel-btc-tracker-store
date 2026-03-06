@@ -7,7 +7,7 @@ import logging
 import os
 import threading
 
-from flask import Flask, redirect, render_template, request, url_for, flash
+from flask import Flask, redirect, render_template, request, url_for, flash, jsonify
 
 import db
 import prices
@@ -47,36 +47,52 @@ def create_app():
     @app.route("/")
     def dashboard():
         with db.get_conn() as conn:
+            # Read user's currency preference (default to USD)
+            currency = db.get_setting(conn, "currency", "usd")
+            currency_label = "CAD" if currency == "cad" else "USD"
+
             wallets = db.get_wallets(conn)
-            latest_price = db.get_latest_price(conn)
+            latest_price = db.get_latest_price(conn, currency)
+
             wallet_data = []
             total_sats = 0
             for w in wallets:
                 bal_sats = db.get_current_balance_sats(conn, w["id"])
                 total_sats += bal_sats
                 bal_btc = bal_sats / 1e8
-                bal_usd = round(bal_btc * latest_price, 2) if latest_price else None
+                bal_fiat = round(bal_btc * latest_price, 2) if latest_price else None
+                avg_price = db.get_avg_purchase_price(conn, w["id"], currency)
                 wallet_data.append({
                     "id": w["id"],
                     "label": w["label"],
-                    "xpub_short": w["xpub"][:20] + "…",
+                    "xpub_short": w["xpub"][:20] + "...",
                     "balance_sats": bal_sats,
                     "balance_btc": round(bal_btc, 8),
-                    "balance_usd": bal_usd,
+                    "balance_fiat": bal_fiat,
+                    "avg_price": avg_price,
                     "last_scanned_at": w["last_scanned_at"],
                 })
+
             total_btc = round(total_sats / 1e8, 8)
-            total_usd = round(total_btc * latest_price, 2) if latest_price else None
-            chart_data = db.get_portfolio_chart_data(conn)
+            total_fiat = round(total_btc * latest_price, 2) if latest_price else None
+
+            # Portfolio chart data
+            chart_data = db.get_portfolio_chart_data(conn, currency)
+
+            # All-time-high portfolio value
+            max_portfolio = db.get_max_portfolio_value(conn, currency)
 
         return render_template(
             "dashboard.html",
             wallets=wallet_data,
             total_btc=total_btc,
-            total_usd=total_usd,
+            total_fiat=total_fiat,
             latest_price=latest_price,
+            currency=currency,
+            currency_label=currency_label,
+            max_portfolio=max_portfolio,
             chart_labels=json.dumps([r["date"] for r in chart_data]),
-            chart_values=json.dumps([r["total_usd"] for r in chart_data]),
+            chart_values=json.dumps([r["total_fiat"] for r in chart_data]),
         )
 
     @app.route("/wallets")
@@ -114,6 +130,16 @@ def create_app():
                 flash(f"Wallet '{w['label']}' removed.", "success")
         return redirect(url_for("wallet_list"))
 
+    @app.route("/settings/currency", methods=["POST"])
+    def set_currency():
+        """Toggle the display currency between USD and CAD."""
+        currency = request.form.get("currency", "usd").lower()
+        if currency not in ("usd", "cad"):
+            currency = "usd"
+        with db.get_conn() as conn:
+            db.set_setting(conn, "currency", currency)
+        return redirect(url_for("dashboard"))
+
     @app.route("/sync", methods=["POST"])
     def sync():
         """Trigger a full sync in the background and redirect back."""
@@ -133,9 +159,9 @@ def create_app():
     @app.route("/api/chart-data")
     def api_chart_data():
         """JSON endpoint for the portfolio chart."""
-        from flask import jsonify
         with db.get_conn() as conn:
-            data = db.get_portfolio_chart_data(conn)
+            currency = db.get_setting(conn, "currency", "usd")
+            data = db.get_portfolio_chart_data(conn, currency)
         return jsonify(data)
 
     @app.teardown_appcontext
