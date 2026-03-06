@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="margin-bottom: 20px;">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-sync btn-sm">&larr; Back to Dashboard</a>
+</div>
+
+<h1 class="page-title">{{ wallet.label }}</h1>
+
+<!-- Summary cards -->
+<section class="summary-bar" style="margin-bottom: 28px;">
+  <div class="summary-card">
+    <div class="summary-label">Current Balance</div>
+    <div class="summary-value">
+      {{ balance_btc }} <span class="summary-currency">BTC</span>
+    </div>
+    <div class="summary-sub">
+      {% if balance_fiat is not none %}
+        ${{ "{:,.2f}".format(balance_fiat) }} {{ currency_label }}
+      {% else %}—{% endif %}
+    </div>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-label">Avg. Purchase Price</div>
+    <div class="summary-value">
+      {% if avg_price is not none %}
+        ${{ "{:,.0f}".format(avg_price) }}
+        <span class="summary-currency">{{ currency_label }}</span>
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="summary-sub">Excl. inter-wallet transfers</div>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-label">Current BTC Price</div>
+    <div class="summary-value">
+      {% if latest_price %}
+        ${{ "{:,.0f}".format(latest_price) }}
+        <span class="summary-currency">{{ currency_label }}</span>
+      {% else %}—{% endif %}
+    </div>
+    <div class="summary-sub">Latest available</div>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-label">Total Transactions</div>
+    <div class="summary-value">{{ txs | length }}</div>
+    <div class="summary-sub">
+      {{ txs | selectattr('tx_type', 'equalto', 'Received') | list | length }} received ·
+      {{ txs | selectattr('tx_type', 'equalto', 'Sent') | list | length }} sent ·
+      {{ txs | selectattr('tx_type', 'equalto', 'Transfer') | list | length }} transfer
+    </div>
+  </div>
+</section>
+
+<!-- Transaction table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+  {% if txs %}
+  <table class="tx-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>BTC Amount</th>
+        <th>Price at Time</th>
+        <th>Fiat Value</th>
+        <th>Transaction ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tx in txs | reverse %}
+      <tr>
+        <td>
+          {% if tx.date %}
+            {{ tx.date }}
+          {% else %}
+            <span class="badge badge-pending">Pending</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if tx.tx_type == 'Received' %}
+            <span class="badge badge-received">Received</span>
+          {% elif tx.tx_type == 'Sent' %}
+            <span class="badge badge-sent">Sent</span>
+          {% else %}
+            <span class="badge badge-transfer">Transfer</span>
+          {% endif %}
+        </td>
+        <td class="{{ 'tx-positive' if tx.value_sats > 0 else 'tx-negative' }}">
+          {{ "+" if tx.value_sats > 0 else "-" }}{{ tx.btc_amount }} BTC
+        </td>
+        <td>
+          {% if tx.price_at_time %}
+            ${{ "{:,.0f}".format(tx.price_at_time) }} {{ currency_label }}
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if tx.fiat_at_time is not none %}
+            ${{ "{:,.2f}".format(tx.fiat_at_time) }} {{ currency_label }}
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          <a href="https://mempool.space/tx/{{ tx.txid }}" target="_blank" rel="noopener"
+             class="mono" title="{{ tx.txid }}">
+            {{ tx.txid_short }}
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <p>No transactions found. Click <strong>Sync Now</strong> to scan this wallet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<div class="wallet-meta" style="margin-top: 16px;">
+  xpub: {{ wallet.xpub }}
+</div>
+
+{% endblock %}

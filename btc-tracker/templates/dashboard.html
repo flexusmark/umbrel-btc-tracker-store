@@ -57,6 +57,7 @@
 {% if wallets %}
 <section class="wallet-cards">
   {% for w in wallets %}
+  <a href="{{ url_for('wallet_detail', wallet_id=w.id) }}" class="wallet-card-link">
   <div class="wallet-card">
     <div class="wallet-label">{{ w.label }}</div>
     <div class="wallet-btc">{{ w.balance_btc }} <span class="unit">BTC</span></div>
@@ -77,6 +78,7 @@
       {% endif %}
     </div>
   </div>
+  </a>
   {% endfor %}
 </section>
 {% else %}
@@ -93,20 +95,108 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script>
-    const labels = {{ chart_labels | safe }};
-    const values = {{ chart_values | safe }};
+    const labels        = {{ chart_labels | safe }};
+    const values        = {{ chart_values | safe }};
+    const investedLabels = {{ invested_labels | safe }};
+    const investedRaw   = {{ invested_values | safe }};
     const currencyLabel = {{ currency_label | tojson }};
+
+    // Merge invested data onto the portfolio date axis.
+    // For each portfolio date, find the last cumulative_invested on or before it.
+    const investedMap = {};
+    for (let i = 0; i < investedLabels.length; i++) {
+      investedMap[investedLabels[i]] = investedRaw[i];
+    }
+    // Build invested series aligned to portfolio labels, carrying last value forward.
+    let lastInvested = null;
+    const investedAligned = labels.map(d => {
+      if (investedMap[d] !== undefined) lastInvested = investedMap[d];
+      return lastInvested;
+    });
 
     const ctx = document.getElementById('portfolioChart').getContext('2d');
     new Chart(ctx, {
       type: 'line',
       data: {
         labels: labels,
+        datasets: [
+          {
+            label: 'Portfolio Value',
+            data: values,
+            borderColor: '#f7931a',
+            backgroundColor: 'rgba(247, 147, 26, 0.12)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            order: 1,
+          },
+          {
+            label: 'Amount Invested',
+            data: investedAligned,
+            borderColor: '#5b9cf6',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [6, 4],
+            fill: false,
+            tension: 0.1,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            spanGaps: true,
+            order: 2,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { color: '#aaa', usePointStyle: true }
+          },
+          tooltip: {
+            callbacks: {
+              label: ctx => ctx.dataset.label + ': $' +
+                ctx.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) +
+                ' ' + currencyLabel
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#aaa', maxTicksLimit: 12, maxRotation: 0 },
+            grid: { color: '#333' }
+          },
+          y: {
+            ticks: { color: '#aaa', callback: v => '$' + v.toLocaleString() },
+            grid: { color: '#333' }
+          }
+        }
+      }
+    });
+  </script>
+
+  <!-- BTC Held Over Time chart -->
+  <h2 class="chart-title" style="margin-top: 28px;">BTC Held Over Time</h2>
+  <div class="chart-wrapper">
+    <canvas id="btcChart"></canvas>
+  </div>
+  <script>
+    const btcLabels = {{ btc_chart_labels | safe }};
+    const btcValues = {{ btc_chart_values | safe }};
+
+    const btcCtx = document.getElementById('btcChart').getContext('2d');
+    new Chart(btcCtx, {
+      type: 'line',
+      data: {
+        labels: btcLabels,
         datasets: [{
-          label: 'Portfolio ' + currencyLabel + ' Value',
-          data: values,
-          borderColor: '#f7931a',
-          backgroundColor: 'rgba(247, 147, 26, 0.12)',
+          label: 'BTC Holdings',
+          data: btcValues,
+          borderColor: '#4caf6e',
+          backgroundColor: 'rgba(76, 175, 110, 0.10)',
           borderWidth: 2,
           fill: true,
           tension: 0.2,
@@ -121,30 +211,24 @@
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: ctx => '$' + ctx.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + currencyLabel
+              label: ctx => ctx.parsed.y.toFixed(8) + ' BTC'
             }
           }
         },
         scales: {
           x: {
-            ticks: {
-              color: '#aaa',
-              maxTicksLimit: 12,
-              maxRotation: 0,
-            },
+            ticks: { color: '#aaa', maxTicksLimit: 12, maxRotation: 0 },
             grid: { color: '#333' }
           },
           y: {
-            ticks: {
-              color: '#aaa',
-              callback: v => '$' + v.toLocaleString()
-            },
+            ticks: { color: '#aaa', callback: v => v.toFixed(4) + ' ₿' },
             grid: { color: '#333' }
           }
         }
       }
     });
   </script>
+
   {% else %}
   <div class="empty-state">
     <p>No historical data yet. Add wallets and click <strong>Sync Now</strong> to load your transaction history.</p>
