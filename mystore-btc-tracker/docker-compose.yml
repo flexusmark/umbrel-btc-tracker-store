@@ -19,7 +19,7 @@ services:
 
   web:
     # Replace YOURUSERNAME and the sha256 digest after your first GitHub Actions build
-    image: ghcr.io/flexusmark/btc-tracker:latest@sha256:sha256:adceb6ead700f64c04cec834b0a867f1181e30d3a5c567e28db71c52ebb23093
+    image: ghcr.io/flexusmark/btc-tracker:latest@sha256:adceb6ead700f64c04cec834b0a867f1181e30d3a5c567e28db71c52ebb23093
     user: "1000:1000"
     restart: unless-stopped
     init: true
