@@ -10,7 +10,10 @@ services:
     volumes:
       - "${APP_DATA_DIR}/data:/data"
     environment:
-      ELECTRS_HOST: "${APP_ELECTRS_NODE_IP}"
-      ELECTRS_PORT: "3000"
+      # Electrs Electrum TCP protocol connection (hardcoded Umbrel IP)
+      ELECTRS_HOST: "10.21.21.10"
+      ELECTRS_PORT: "50001"
+      # Flask secret key — Umbrel provides a unique seed per app
       SECRET_KEY: "${APP_SEED}"
+      # SQLite database path (inside the /data volume)
       DB_PATH: "/data/btc_tracker.db"
