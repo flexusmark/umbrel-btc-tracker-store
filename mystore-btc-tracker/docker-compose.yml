@@ -1,0 +1,42 @@
+version: "3.7"
+
+# -----------------------------------------------------------------------
+# IMPORTANT: Before installing this app on Umbrel you must:
+#   1. Build the Docker image via GitHub Actions (see README).
+#   2. Copy the SHA256 digest from the Actions run output.
+#   3. Replace YOURUSERNAME and the sha256 placeholder below.
+# -----------------------------------------------------------------------
+
+services:
+  app_proxy:
+    image: getumbrel/app-proxy:latest
+    environment:
+      APP_HOST: mystore-btc-tracker_web_1
+      APP_PORT: 5000
+      PROXY_AUTH_ADD: "false"
+    networks:
+      - default
+
+  web:
+    # Replace YOURUSERNAME and the sha256 digest after your first GitHub Actions build
+    image: ghcr.io/YOURUSERNAME/btc-tracker:latest@sha256:REPLACE_WITH_SHA256_AFTER_FIRST_BUILD
+    user: "1000:1000"
+    restart: unless-stopped
+    init: true
+    volumes:
+      - "${APP_DATA_DIR}/data:/data"
+    environment:
+      # Electrs REST API connection (injected by Umbrel)
+      ELECTRS_HOST: "${APP_ELECTRS_NODE_IP}"
+      # Electrs exposes its Esplora REST API on port 3000 internally
+      ELECTRS_PORT: "3000"
+      # Flask secret key — Umbrel provides a unique seed per app
+      SECRET_KEY: "${APP_SEED}"
+      # SQLite database path (inside the /data volume)
+      DB_PATH: "/data/btc_tracker.db"
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge

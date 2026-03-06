@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BTC Cold Storage Tracker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <nav class="navbar">
+    <span class="nav-brand">&#8383; Cold Storage Tracker</span>
+    <div class="nav-links">
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Dashboard</a>
+      <a href="{{ url_for('wallet_list') }}" class="{{ 'active' if request.endpoint == 'wallet_list' else '' }}">Wallets</a>
+      <form action="{{ url_for('sync') }}" method="post" style="display:inline">
+        <button type="submit" class="btn btn-sync">Sync Now</button>
+      </form>
+    </div>
+  </nav>
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    All data is private and stored locally on your Umbrel.
+  </footer>
+</body>
+</html>

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="summary-bar">
+  <div class="summary-card summary-card--total">
+    <div class="summary-label">Total Holdings</div>
+    <div class="summary-value">
+      {% if total_usd is not none %}
+        ${{ "{:,.2f}".format(total_usd) }}
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="summary-sub">{{ total_btc }} BTC</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">BTC Price</div>
+    <div class="summary-value">
+      {% if latest_price %}
+        ${{ "{:,.0f}".format(latest_price) }}
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="summary-sub">Latest available</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-label">Wallets Tracked</div>
+    <div class="summary-value">{{ wallets | length }}</div>
+    <div class="summary-sub"><a href="{{ url_for('wallet_list') }}">Manage wallets</a></div>
+  </div>
+</section>
+
+{% if wallets %}
+<section class="wallet-cards">
+  {% for w in wallets %}
+  <div class="wallet-card">
+    <div class="wallet-label">{{ w.label }}</div>
+    <div class="wallet-btc">{{ w.balance_btc }} <span class="unit">BTC</span></div>
+    <div class="wallet-usd">
+      {% if w.balance_usd is not none %}
+        ${{ "{:,.2f}".format(w.balance_usd) }}
+      {% else %}—{% endif %}
+    </div>
+    <div class="wallet-meta">
+      <span title="{{ w.xpub_short }}">{{ w.xpub_short }}</span>
+      {% if w.last_scanned_at %}
+        · last synced {{ w.last_scanned_at[:10] }}
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% else %}
+<div class="empty-state">
+  <p>No wallets yet. <a href="{{ url_for('wallet_list') }}">Add your first wallet</a> to get started.</p>
+</div>
+{% endif %}
+
+<section class="chart-section">
+  <h2 class="chart-title">Portfolio Value Over Time (USD)</h2>
+  {% if chart_labels and chart_labels != '[]' %}
+  <div class="chart-wrapper">
+    <canvas id="portfolioChart"></canvas>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    const labels = {{ chart_labels | safe }};
+    const values = {{ chart_values | safe }};
+
+    const ctx = document.getElementById('portfolioChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Portfolio USD Value',
+          data: values,
+          borderColor: '#f7931a',
+          backgroundColor: 'rgba(247, 147, 26, 0.12)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => '$' + ctx.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#aaa',
+              maxTicksLimit: 12,
+              maxRotation: 0,
+            },
+            grid: { color: '#333' }
+          },
+          y: {
+            ticks: {
+              color: '#aaa',
+              callback: v => '$' + v.toLocaleString()
+            },
+            grid: { color: '#333' }
+          }
+        }
+      }
+    });
+  </script>
+  {% else %}
+  <div class="empty-state">
+    <p>No historical data yet. Add wallets and click <strong>Sync Now</strong> to load your transaction history.</p>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}

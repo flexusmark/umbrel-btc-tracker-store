@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 class="page-title">Manage Wallets</h1>
+
+<section class="card">
+  <h2 class="card-title">Add a Wallet</h2>
+  <form action="{{ url_for('wallet_add') }}" method="post" class="add-wallet-form">
+    <div class="form-row">
+      <label for="label">Label</label>
+      <input
+        type="text"
+        id="label"
+        name="label"
+        placeholder="e.g. Coldcard Hardware Wallet"
+        required
+        maxlength="64"
+        autocomplete="off"
+      />
+    </div>
+    <div class="form-row">
+      <label for="xpub">XPub / ZPub</label>
+      <input
+        type="text"
+        id="xpub"
+        name="xpub"
+        placeholder="zpub6…"
+        required
+        autocomplete="off"
+        class="input-mono"
+      />
+      <small class="form-hint">
+        Find this in your hardware wallet software (Sparrow, Specter, etc.)
+        under Account / Cosigners. It starts with <code>zpub</code> for
+        Native SegWit wallets.
+      </small>
+    </div>
+    <button type="submit" class="btn btn-primary">Add Wallet</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2 class="card-title">Existing Wallets</h2>
+  {% if wallets %}
+  <table class="wallet-table">
+    <thead>
+      <tr>
+        <th>Label</th>
+        <th>XPub (first 30 chars)</th>
+        <th>Added</th>
+        <th>Last Synced</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for w in wallets %}
+      <tr>
+        <td><strong>{{ w['label'] }}</strong></td>
+        <td class="mono">{{ w['xpub'][:30] }}…</td>
+        <td>{{ w['created_at'][:10] }}</td>
+        <td>{{ w['last_scanned_at'][:10] if w['last_scanned_at'] else '—' }}</td>
+        <td>
+          <form action="{{ url_for('wallet_delete', wallet_id=w['id']) }}" method="post"
+                onsubmit="return confirm('Remove wallet \'{{ w['label'] }}\'? All its stored data will be deleted.')">
+            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty-state">No wallets added yet.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

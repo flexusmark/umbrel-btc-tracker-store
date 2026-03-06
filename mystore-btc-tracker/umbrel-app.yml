@@ -1,0 +1,31 @@
+manifestVersion: 1
+id: mystore-btc-tracker
+category: bitcoin
+name: Cold Storage Tracker
+version: "1.0.0"
+tagline: Track your cold storage Bitcoin holdings over time
+
+description: >
+  A private, self-hosted dashboard that tracks your cold storage Bitcoin wallets
+  using your local Electrs server. Enter your xpub/zpub keys, and the app will
+  derive all addresses, fetch your full transaction history from the blockchain,
+  and chart your total portfolio value in USD over time using daily BTC price
+  data from CoinGecko.
+
+  All data stays on your Umbrel — no third parties ever see your wallet addresses
+  or balances.
+
+developer: Self-hosted
+website: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store
+repo: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store
+support: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store/issues
+submitter: YOURUSERNAME
+submission: https://github.com/YOURUSERNAME/umbrel-btc-tracker-store
+
+dependencies:
+  - electrs
+
+port: 4567
+
+gallery:
+  - 1.jpg
