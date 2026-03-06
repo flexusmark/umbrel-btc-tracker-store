@@ -2,7 +2,7 @@
 scanner.py — BIP84 (Native SegWit / zpub) address derivation and Electrs querying.
 
 For each wallet:
-  1. Derive receiving (chain=0) and change (chain=1) addresses using bip_utils.
+  1. Derive receiving (chain=0) and change (chain=1) addresses using embit.
   2. Query Electrs REST API for transaction history per address.
   3. Compute the net value_sats each transaction contributed to that address.
   4. Store addresses and transactions in the database.
@@ -14,7 +14,8 @@ transactions.
 import os
 import logging
 import requests
-from bip_utils import Bip84, Bip84Coins
+from embit import bip32, script
+from embit.networks import NETWORKS
 
 import db
 
@@ -80,10 +81,10 @@ def _net_value_for_address(tx, address):
     return received - spent
 
 
-def _derive_address(bip84_ctx, chain, idx):
+def _derive_address(root_key, chain, idx):
     """Derive a single BIP84 bc1q... address for the given chain and index."""
-    child = bip84_ctx.Change(chain).AddressIndex(idx)
-    return child.PublicKey().ToAddress()
+    child = root_key.derive([chain, idx])
+    return script.p2wpkh(child).address(NETWORKS["main"])
 
 
 def scan_wallet(wallet_id, xpub):
@@ -94,7 +95,7 @@ def scan_wallet(wallet_id, xpub):
     log.info("Scanning wallet %s (xpub: %s...)", wallet_id, xpub[:20])
 
     try:
-        bip84_ctx = Bip84.FromExtendedKey(xpub, Bip84Coins.BITCOIN)
+        root_key = bip32.HDKey.from_base58(xpub)
     except Exception as exc:
         log.error("Invalid xpub for wallet %s: %s", wallet_id, exc)
         return
@@ -104,7 +105,7 @@ def scan_wallet(wallet_id, xpub):
             gap = 0
             idx = 0
             while gap < GAP_LIMIT:
-                address = _derive_address(bip84_ctx, chain, idx)
+                address = _derive_address(root_key, chain, idx)
                 addr_id = db.upsert_address(conn, wallet_id, address, chain, idx)
 
                 txs = _get_all_txs(address)
