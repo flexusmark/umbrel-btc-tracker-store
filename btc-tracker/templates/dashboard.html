@@ -5,25 +5,48 @@
   <div class="summary-card summary-card--total">
     <div class="summary-label">Total Holdings</div>
     <div class="summary-value">
-      {% if total_usd is not none %}
-        ${{ "{:,.2f}".format(total_usd) }}
+      {% if total_fiat is not none %}
+        ${{ "{:,.2f}".format(total_fiat) }}
+        <span class="summary-currency">{{ currency_label }}</span>
       {% else %}
         —
       {% endif %}
     </div>
     <div class="summary-sub">{{ total_btc }} BTC</div>
   </div>
+
   <div class="summary-card">
     <div class="summary-label">BTC Price</div>
     <div class="summary-value">
       {% if latest_price %}
         ${{ "{:,.0f}".format(latest_price) }}
+        <span class="summary-currency">{{ currency_label }}</span>
       {% else %}
         —
       {% endif %}
     </div>
     <div class="summary-sub">Latest available</div>
   </div>
+
+  <div class="summary-card summary-card--ath">
+    <div class="summary-label">Max Portfolio Value</div>
+    <div class="summary-value">
+      {% if max_portfolio %}
+        ${{ "{:,.2f}".format(max_portfolio.value) }}
+        <span class="summary-currency">{{ currency_label }}</span>
+      {% else %}
+        —
+      {% endif %}
+    </div>
+    <div class="summary-sub">
+      {% if max_portfolio %}
+        {{ max_portfolio.date }}
+      {% else %}
+        No data yet
+      {% endif %}
+    </div>
+  </div>
+
   <div class="summary-card">
     <div class="summary-label">Wallets Tracked</div>
     <div class="summary-value">{{ wallets | length }}</div>
@@ -37,11 +60,16 @@
   <div class="wallet-card">
     <div class="wallet-label">{{ w.label }}</div>
     <div class="wallet-btc">{{ w.balance_btc }} <span class="unit">BTC</span></div>
-    <div class="wallet-usd">
-      {% if w.balance_usd is not none %}
-        ${{ "{:,.2f}".format(w.balance_usd) }}
+    <div class="wallet-fiat">
+      {% if w.balance_fiat is not none %}
+        ${{ "{:,.2f}".format(w.balance_fiat) }} {{ currency_label }}
       {% else %}—{% endif %}
     </div>
+    {% if w.avg_price is not none %}
+    <div class="wallet-avg-price">
+      Avg. purchase: ${{ "{:,.0f}".format(w.avg_price) }} {{ currency_label }}
+    </div>
+    {% endif %}
     <div class="wallet-meta">
       <span title="{{ w.xpub_short }}">{{ w.xpub_short }}</span>
       {% if w.last_scanned_at %}
@@ -58,7 +86,7 @@
 {% endif %}
 
 <section class="chart-section">
-  <h2 class="chart-title">Portfolio Value Over Time (USD)</h2>
+  <h2 class="chart-title">Portfolio Value Over Time ({{ currency_label }})</h2>
   {% if chart_labels and chart_labels != '[]' %}
   <div class="chart-wrapper">
     <canvas id="portfolioChart"></canvas>
@@ -67,6 +95,7 @@
   <script>
     const labels = {{ chart_labels | safe }};
     const values = {{ chart_values | safe }};
+    const currencyLabel = {{ currency_label | tojson }};
 
     const ctx = document.getElementById('portfolioChart').getContext('2d');
     new Chart(ctx, {
@@ -74,7 +103,7 @@
       data: {
         labels: labels,
         datasets: [{
-          label: 'Portfolio USD Value',
+          label: 'Portfolio ' + currencyLabel + ' Value',
           data: values,
           borderColor: '#f7931a',
           backgroundColor: 'rgba(247, 147, 26, 0.12)',
@@ -92,7 +121,7 @@
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: ctx => '$' + ctx.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+              label: ctx => '$' + ctx.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ' + currencyLabel
             }
           }
         },

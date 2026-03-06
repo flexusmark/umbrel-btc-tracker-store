@@ -12,6 +12,14 @@
     <div class="nav-links">
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">Dashboard</a>
       <a href="{{ url_for('wallet_list') }}" class="{{ 'active' if request.endpoint == 'wallet_list' else '' }}">Wallets</a>
+
+      <!-- Currency toggle -->
+      <form action="{{ url_for('set_currency') }}" method="post" class="currency-toggle">
+        {% set cur = currency|default('usd') %}
+        <button type="submit" name="currency" value="usd" class="cur-btn {{ 'cur-active' if cur == 'usd' else '' }}">USD</button>
+        <button type="submit" name="currency" value="cad" class="cur-btn {{ 'cur-active' if cur == 'cad' else '' }}">CAD</button>
+      </form>
+
       <form action="{{ url_for('sync') }}" method="post" style="display:inline">
         <button type="submit" class="btn btn-sync">Sync Now</button>
       </form>
