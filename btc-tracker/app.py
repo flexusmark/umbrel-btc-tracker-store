@@ -76,8 +76,16 @@ def create_app():
             total_btc = round(total_sats / 1e8, 8)
             total_fiat = round(total_btc * latest_price, 2) if latest_price else None
 
-            # Portfolio chart data
+            # Portfolio chart data (fiat value over time)
             chart_data = db.get_portfolio_chart_data(conn, currency)
+
+            # BTC held over time (derived from chart_data which has total_sats)
+            btc_chart_labels = json.dumps([r["date"] for r in chart_data])
+            btc_chart_values = json.dumps([round(r["total_sats"] / 1e8, 8)
+                                           for r in chart_data])
+
+            # Cumulative amount invested (real purchases only, no transfers)
+            invested_data = db.get_cumulative_invested(conn, currency)
 
             # All-time-high portfolio value
             max_portfolio = db.get_max_portfolio_value(conn, currency)
@@ -93,6 +101,10 @@ def create_app():
             max_portfolio=max_portfolio,
             chart_labels=json.dumps([r["date"] for r in chart_data]),
             chart_values=json.dumps([r["total_fiat"] for r in chart_data]),
+            btc_chart_labels=btc_chart_labels,
+            btc_chart_values=btc_chart_values,
+            invested_labels=json.dumps([r["date"] for r in invested_data]),
+            invested_values=json.dumps([r["cumulative_invested"] for r in invested_data]),
         )
 
     @app.route("/wallets")
@@ -129,6 +141,76 @@ def create_app():
                 db.delete_wallet(conn, wallet_id)
                 flash(f"Wallet '{w['label']}' removed.", "success")
         return redirect(url_for("wallet_list"))
+
+    @app.route("/wallets/<int:wallet_id>/detail")
+    def wallet_detail(wallet_id):
+        """Show full transaction history for a single wallet."""
+        import datetime
+        with db.get_conn() as conn:
+            wallet = db.get_wallet(conn, wallet_id)
+            if not wallet:
+                flash("Wallet not found.", "error")
+                return redirect(url_for("dashboard"))
+            currency = db.get_setting(conn, "currency", "usd")
+            currency_label = "CAD" if currency == "cad" else "USD"
+            latest_price = db.get_latest_price(conn, currency)
+            bal_sats = db.get_current_balance_sats(conn, wallet_id)
+            avg_price = db.get_avg_purchase_price(conn, wallet_id, currency)
+            raw_txs = db.get_wallet_transactions(conn, wallet_id)
+
+        rows = []
+        for tx in raw_txs:
+            # Date
+            if tx["block_time"]:
+                date_str = datetime.datetime.utcfromtimestamp(
+                    tx["block_time"]
+                ).strftime("%Y-%m-%d")
+            else:
+                date_str = None  # unconfirmed
+
+            # Price and fiat value at time of transaction
+            price_at_time = (
+                tx["cad_price"] if currency == "cad" else tx["usd_price"]
+            )
+            fiat_at_time = (
+                round(abs(tx["value_sats"]) / 1e8 * price_at_time, 2)
+                if price_at_time else None
+            )
+
+            # Transaction type
+            if tx["is_transfer"]:
+                tx_type = "Transfer"
+            elif tx["value_sats"] > 0:
+                tx_type = "Received"
+            else:
+                tx_type = "Sent"
+
+            rows.append({
+                "txid": tx["txid"],
+                "txid_short": tx["txid"][:16] + "…",
+                "date": date_str,
+                "block_height": tx["block_height"],
+                "btc_amount": round(abs(tx["value_sats"]) / 1e8, 8),
+                "value_sats": tx["value_sats"],
+                "price_at_time": price_at_time,
+                "fiat_at_time": fiat_at_time,
+                "tx_type": tx_type,
+                "address": tx["address"],
+            })
+
+        return render_template(
+            "wallet_detail.html",
+            wallet=wallet,
+            txs=rows,
+            currency=currency,
+            currency_label=currency_label,
+            latest_price=latest_price,
+            balance_btc=round(bal_sats / 1e8, 8),
+            balance_fiat=(
+                round(bal_sats / 1e8 * latest_price, 2) if latest_price else None
+            ),
+            avg_price=avg_price,
+        )
 
     @app.route("/settings/currency", methods=["POST"])
     def set_currency():
