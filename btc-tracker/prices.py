@@ -28,14 +28,19 @@ def _fetch_history(vs_currency, days="max"):
     """
     Fetch BTC price history from CoinGecko for a given fiat currency.
     Returns a dict of {date_str: price}.
+
+    Note: CoinGecko auto-selects granularity based on 'days':
+      1 day = 5-min, 2-90 days = hourly, >90 days = daily.
+    The 'interval' parameter is NOT used (removed from free/demo tier).
     """
     url = (
         f"{COINGECKO_BASE}/coins/bitcoin/market_chart"
-        f"?vs_currency={vs_currency}&days={days}&interval=daily"
+        f"?vs_currency={vs_currency}&days={days}"
     )
+    headers = {}
     if COINGECKO_API_KEY:
-        url += f"&x_cg_demo_api_key={COINGECKO_API_KEY}"
-    resp = requests.get(url, timeout=REQUEST_TIMEOUT)
+        headers["x-cg-demo-api-key"] = COINGECKO_API_KEY
+    resp = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
 
