@@ -302,13 +302,29 @@ def get_max_portfolio_value(conn, currency="usd"):
 
 # --- Average purchase price per wallet ---
 
+_TRANSFER_TXIDS_SQL = """
+    SELECT DISTINCT t2.txid
+    FROM transactions t2
+    JOIN addresses a2 ON a2.id = t2.address_id
+    WHERE t2.value_sats > 0
+      AND EXISTS (
+          SELECT 1 FROM transactions t3
+          JOIN addresses a3 ON a3.id = t3.address_id
+          WHERE t3.txid = t2.txid
+            AND t3.value_sats < 0
+            AND a3.wallet_id != a2.wallet_id
+      )
+"""
+
+
 def get_avg_purchase_price(conn, wallet_id, currency="usd"):
     """
     Compute the weighted-average BTC price at the time of each deposit
     (cost basis) for a wallet.
 
     Only considers receive transactions (value_sats > 0) with a confirmed
-    block_time. Joins with btc_prices on the transaction date.
+    block_time, excluding inter-wallet transfers. Joins with btc_prices on
+    the transaction date.
 
     Returns the average price as a float, or None if no qualifying data.
     """
@@ -323,8 +339,62 @@ def get_avg_purchase_price(conn, wallet_id, currency="usd"):
           AND t.value_sats > 0
           AND t.block_time IS NOT NULL
           AND p.{price_col} IS NOT NULL
+          AND t.txid NOT IN ({_TRANSFER_TXIDS_SQL})
     """, (wallet_id,)).fetchone()
 
     if row and row["total_sats"] and row["total_sats"] > 0:
         return round(row["total_cost"] / (row["total_sats"] / 1e8), 2)
     return None
+
+
+def get_cumulative_invested(conn, currency="usd"):
+    """
+    Return a list of {date, cumulative_invested} dicts, where each entry
+    is the running total of fiat spent on real BTC purchases (excluding
+    inter-wallet transfers) up to and including that date.
+
+    Only dates with actual purchases appear; the chart should use
+    spanGaps=true so the line carries forward between purchase dates.
+    """
+    price_col = "cad_price" if currency == "cad" else "usd_price"
+    rows = conn.execute(f"""
+        WITH daily_spend AS (
+            SELECT date(t.block_time, 'unixepoch') AS day,
+                   SUM(t.value_sats * p.{price_col} / 1e8) AS spent
+            FROM transactions t
+            JOIN addresses a ON a.id = t.address_id
+            JOIN btc_prices p ON p.date = date(t.block_time, 'unixepoch')
+            WHERE t.value_sats > 0
+              AND t.block_time IS NOT NULL
+              AND p.{price_col} IS NOT NULL
+              AND t.txid NOT IN ({_TRANSFER_TXIDS_SQL})
+            GROUP BY day
+        )
+        SELECT day AS date,
+               SUM(spent) OVER (ORDER BY day) AS cumulative_invested
+        FROM daily_spend
+        ORDER BY day
+    """).fetchall()
+    return [{"date": r["date"], "cumulative_invested": round(r["cumulative_invested"], 2)}
+            for r in rows]
+
+
+def get_wallet_transactions(conn, wallet_id):
+    """
+    Return all transactions for a wallet's detail page, joined with price
+    data and annotated with an is_transfer flag (1 = inter-wallet transfer).
+    Ordered chronologically (confirmed first, then unconfirmed).
+    """
+    rows = conn.execute(f"""
+        SELECT t.txid, t.block_height, t.block_time, t.value_sats,
+               a.address,
+               p.usd_price, p.cad_price,
+               CASE WHEN tr.txid IS NOT NULL THEN 1 ELSE 0 END AS is_transfer
+        FROM transactions t
+        JOIN addresses a ON a.id = t.address_id
+        LEFT JOIN btc_prices p ON p.date = date(t.block_time, 'unixepoch')
+        LEFT JOIN ({_TRANSFER_TXIDS_SQL}) AS tr ON tr.txid = t.txid
+        WHERE a.wallet_id = ?
+        ORDER BY COALESCE(t.block_time, 9999999999) ASC
+    """, (wallet_id,)).fetchall()
+    return rows
