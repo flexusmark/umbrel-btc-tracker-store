@@ -14,6 +14,8 @@
   --red:         #e05252;
   --green:       #4caf6e;
   --blue:        #5b9cf6;
+  --gold:        #ffd700;
+  --gold-dim:    rgba(255, 215, 0, 0.12);
   --radius:      10px;
 }
 
@@ -69,6 +71,32 @@ a:hover { text-decoration: underline; }
   text-decoration: none;
 }
 
+/* ---- Currency toggle ---- */
+.currency-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.cur-btn {
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: var(--surface2);
+  transition: all 0.15s;
+}
+.cur-btn:hover {
+  color: var(--text);
+}
+.cur-btn.cur-active {
+  background: var(--orange);
+  color: #000;
+}
+
 /* ---- Layout ---- */
 .container {
   flex: 1;
@@ -113,8 +141,13 @@ a:hover { text-decoration: underline; }
   border-color: var(--orange);
   background: var(--orange-dim);
 }
+.summary-card--ath {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+}
 .summary-label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
 .summary-value { font-size: 1.9rem; font-weight: 700; color: var(--text); }
+.summary-currency { font-size: 0.7rem; font-weight: 500; color: var(--text-muted); vertical-align: middle; }
 .summary-sub   { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
 
 /* ---- Wallet cards ---- */
@@ -133,7 +166,14 @@ a:hover { text-decoration: underline; }
 .wallet-label { font-weight: 600; margin-bottom: 6px; }
 .wallet-btc   { font-size: 1.25rem; font-weight: 700; color: var(--orange); }
 .unit         { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; }
-.wallet-usd   { font-size: 0.95rem; color: var(--text-muted); margin-top: 2px; }
+.wallet-fiat  { font-size: 0.95rem; color: var(--text-muted); margin-top: 2px; }
+.wallet-avg-price {
+  font-size: 0.82rem;
+  color: var(--blue);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
 .wallet-meta  { font-size: 0.72rem; color: var(--text-muted); margin-top: 10px; word-break: break-all; }
 
 /* ---- Chart ---- */
