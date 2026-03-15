@@ -28,6 +28,12 @@ COPY --from=builder /src/app.py \
                     /src/mempool_client.py \
                     /src/xpub_derivation.py \
                     ./
+# Patch: derive enough addresses so the gap-limit scan can actually work.
+# Upstream hardcodes count=20 in the scan endpoint and derive_addresses
+# ignores gap_limit entirely — raise the default to 200 so scan_addresses'
+# gap-limit logic is the real stopping condition.
+RUN sed -i 's/count = data\.get("count", 20)/count = data.get("count", 200)/' /app/app.py
+
 COPY --from=builder /src/static    /app/static
 COPY --from=builder /src/templates /app/templates
 
