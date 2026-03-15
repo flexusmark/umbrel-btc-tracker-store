@@ -17,7 +17,7 @@ export ELECTRS_HOST="${ELECTRS_HOST:-10.21.21.10}"
 export ELECTRS_PORT="${ELECTRS_PORT:-50001}"
 export MEMPOOL_URL="${MEMPOOL_URL:-http://10.21.21.10:3006}"
 export DEFAULT_CURRENCY="${DEFAULT_CURRENCY:-USD}"
-export GAP_LIMIT="${GAP_LIMIT:-20}"
+export GAP_LIMIT="${GAP_LIMIT:-50}"
 export COST_BASIS_METHOD="${COST_BASIS_METHOD:-HIFO}"
 # Tor is not used on Umbrel's local network — keep defaults so int() parsing works
 export TOR_PROXY_HOST="${TOR_PROXY_HOST:-127.0.0.1}"

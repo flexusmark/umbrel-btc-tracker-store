@@ -25,7 +25,7 @@ services:
 
       # Cost basis defaults (can be overridden per-request in the UI)
       DEFAULT_CURRENCY: "USD"
-      GAP_LIMIT: "20"
+      GAP_LIMIT: "50"
       COST_BASIS_METHOD: "HIFO"
 
       # Flask session secret (Umbrel provides a unique seed per app)
