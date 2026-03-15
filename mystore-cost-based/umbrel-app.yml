@@ -1,0 +1,30 @@
+manifestVersion: 1
+id: mystore-cost-based
+category: bitcoin
+name: Cost Based
+version: "0.5.0"
+tagline: Private Bitcoin cost basis & capital gains tracker
+description: >
+  Calculate your Bitcoin capital gains and losses using HIFO, FIFO, or LIFO
+  accounting. Import wallets via xpub/zpub or BSMS multisig files. All
+  computation runs locally using your Electrs and Mempool nodes — no data
+  ever leaves your Umbrel.
+
+  Supports single-sig (BIP84/49/44) and multisig (BIP48/45) wallets.
+  Exports CoinTracker- and Ghostfolio-compatible CSV files for tax reporting.
+
+developer: citadeldaniel
+website: https://github.com/citadeldaniel/cost-based
+repo: https://github.com/citadeldaniel/cost-based
+support: https://github.com/citadeldaniel/cost-based/issues
+submitter: flexusmark
+submission: https://github.com/flexusmark/umbrel-btc-tracker-store
+
+dependencies:
+  - electrs
+  - mempool
+
+port: 4568
+
+gallery:
+  - 1.jpg

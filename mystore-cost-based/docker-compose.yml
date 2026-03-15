@@ -1,0 +1,30 @@
+version: "3.7"
+
+services:
+  web:
+    image: ghcr.io/flexusmark/cost-based:latest
+    restart: unless-stopped
+    init: true
+    ports:
+      - "4568:5000"
+    volumes:
+      - "${APP_DATA_DIR}/data:/data"
+    environment:
+      # SQLite database file (inside the persistent /data volume)
+      DATABASE_PATH: "/data/cost_basis.db"
+
+      # Electrs — Electrum JSON-RPC over TCP (same address used by all Umbrel apps)
+      ELECTRS_HOST: "10.21.21.10"
+      ELECTRS_PORT: "50001"
+
+      # Mempool — internal API for historical BTC price data
+      # Port 3006 is confirmed from the official Umbrel mempool app (umbrel-app.yml port: 3006).
+      MEMPOOL_URL: "http://10.21.21.10:3006"
+
+      # Cost basis defaults (can be overridden per-request in the UI)
+      DEFAULT_CURRENCY: "USD"
+      GAP_LIMIT: "20"
+      COST_BASIS_METHOD: "HIFO"
+
+      # Flask session secret (Umbrel provides a unique seed per app)
+      SECRET_KEY: "${APP_SEED}"
