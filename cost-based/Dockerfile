@@ -33,7 +33,8 @@ COPY --from=builder /src/templates /app/templates
 
 # Replace the StartOS entrypoint with our Umbrel-compatible one
 COPY docker_entrypoint.sh /usr/local/bin/docker_entrypoint.sh
-RUN chmod +x /usr/local/bin/docker_entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker_entrypoint.sh && \
+    chmod +x /usr/local/bin/docker_entrypoint.sh
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD ["/usr/local/bin/docker_entrypoint.sh", "check-web"]
