@@ -2,12 +2,15 @@
 app.py — Flask application factory and route definitions.
 """
 
+import csv
+import datetime
+import io
 import json
 import logging
 import os
 import threading
 
-from flask import Flask, redirect, render_template, request, url_for, flash, jsonify
+from flask import Flask, redirect, render_template, request, url_for, flash, jsonify, Response
 
 import db
 import prices
@@ -142,33 +145,17 @@ def create_app():
                 flash(f"Wallet '{w['label']}' removed.", "success")
         return redirect(url_for("wallet_list"))
 
-    @app.route("/wallets/<int:wallet_id>/detail")
-    def wallet_detail(wallet_id):
-        """Show full transaction history for a single wallet."""
-        import datetime
-        with db.get_conn() as conn:
-            wallet = db.get_wallet(conn, wallet_id)
-            if not wallet:
-                flash("Wallet not found.", "error")
-                return redirect(url_for("dashboard"))
-            currency = db.get_setting(conn, "currency", "usd")
-            currency_label = "CAD" if currency == "cad" else "USD"
-            latest_price = db.get_latest_price(conn, currency)
-            bal_sats = db.get_current_balance_sats(conn, wallet_id)
-            avg_price = db.get_avg_purchase_price(conn, wallet_id, currency)
-            raw_txs = db.get_wallet_transactions(conn, wallet_id)
-
+    def _build_tx_rows(raw_txs, currency):
+        """Build display-ready transaction rows from raw DB rows."""
         rows = []
         for tx in raw_txs:
-            # Date
             if tx["block_time"]:
                 date_str = datetime.datetime.utcfromtimestamp(
                     tx["block_time"]
                 ).strftime("%Y-%m-%d")
             else:
-                date_str = None  # unconfirmed
+                date_str = None
 
-            # Price and fiat value at time of transaction
             price_at_time = (
                 tx["cad_price"] if currency == "cad" else tx["usd_price"]
             )
@@ -177,7 +164,6 @@ def create_app():
                 if price_at_time else None
             )
 
-            # Transaction type
             if tx["is_transfer"]:
                 tx_type = "Transfer"
             elif tx["value_sats"] > 0:
@@ -197,6 +183,24 @@ def create_app():
                 "tx_type": tx_type,
                 "address": tx["address"],
             })
+        return rows
+
+    @app.route("/wallets/<int:wallet_id>/detail")
+    def wallet_detail(wallet_id):
+        """Show full transaction history for a single wallet."""
+        with db.get_conn() as conn:
+            wallet = db.get_wallet(conn, wallet_id)
+            if not wallet:
+                flash("Wallet not found.", "error")
+                return redirect(url_for("dashboard"))
+            currency = db.get_setting(conn, "currency", "usd")
+            currency_label = "CAD" if currency == "cad" else "USD"
+            latest_price = db.get_latest_price(conn, currency)
+            bal_sats = db.get_current_balance_sats(conn, wallet_id)
+            avg_price = db.get_avg_purchase_price(conn, wallet_id, currency)
+            raw_txs = db.get_wallet_transactions(conn, wallet_id)
+
+        rows = _build_tx_rows(raw_txs, currency)
 
         return render_template(
             "wallet_detail.html",
@@ -210,6 +214,47 @@ def create_app():
                 round(bal_sats / 1e8 * latest_price, 2) if latest_price else None
             ),
             avg_price=avg_price,
+        )
+
+    @app.route("/wallets/<int:wallet_id>/export.csv")
+    def wallet_export_csv(wallet_id):
+        """Download wallet transactions as a CSV file."""
+        with db.get_conn() as conn:
+            wallet = db.get_wallet(conn, wallet_id)
+            if not wallet:
+                flash("Wallet not found.", "error")
+                return redirect(url_for("dashboard"))
+            currency = db.get_setting(conn, "currency", "usd")
+            currency_label = "CAD" if currency == "cad" else "USD"
+            raw_txs = db.get_wallet_transactions(conn, wallet_id)
+
+        rows = _build_tx_rows(raw_txs, currency)
+
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow([
+            "Date", "Type", "BTC Amount",
+            f"Price at Time ({currency_label})",
+            f"Fiat Value ({currency_label})",
+            "Transaction ID",
+        ])
+        for r in rows:
+            writer.writerow([
+                r["date"] or "Pending",
+                r["tx_type"],
+                r["btc_amount"],
+                r["price_at_time"] or "",
+                r["fiat_at_time"] or "",
+                r["txid"],
+            ])
+
+        safe_label = wallet["label"].replace(" ", "_")
+        filename = f"{safe_label}_transactions.csv"
+
+        return Response(
+            buf.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
     @app.route("/settings/currency", methods=["POST"])

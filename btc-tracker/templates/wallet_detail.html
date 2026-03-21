@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div style="margin-bottom: 20px;">
+<div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
   <a href="{{ url_for('dashboard') }}" class="btn btn-sync btn-sm">&larr; Back to Dashboard</a>
+  <a href="{{ url_for('wallet_export_csv', wallet_id=wallet.id) }}" class="btn btn-sync btn-sm">&#8615; Download CSV</a>
 </div>
 
 <h1 class="page-title">{{ wallet.label }}</h1>
